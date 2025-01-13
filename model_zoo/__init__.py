@@ -97,6 +97,15 @@ def get_model(model_name, device, root_dir,**kwargs):
     """
     Helper function that returns a model and a potential image preprocessing function.
     """
+    if 'siglip' in model_name.lower():
+        from .siglip_models import SIGLIPWrapper
+        from transformers import AutoModel, AutoProcessor
+        model = AutoModel.from_pretrained(model_name,torch_dtype=torch.bfloat16).to(device)
+        processor = AutoProcessor.from_pretrained(model_name)
+        preprocess = lambda x: processor(images=x, return_tensors="pt", padding=True)
+        image_preprocess = preprocess
+        model = SIGLIPWrapper(model, device, processor)
+        return model, image_preprocess
     if "llm2clip" in model_name.lower():
         from .llm2clip_models import LLM2CLIPWrapper
         # text = Llama_FeatureExtractor()

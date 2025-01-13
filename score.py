@@ -32,11 +32,13 @@ class Model_wrapper:
         self.device = "cuda"
     def encode_text(self,text):
         return self.model.encode(text)
-model = Model_wrapper(l2v)
-from transformers import CLIPProcessor, CLIPModel
+# model = Model_wrapper(l2v)
+from transformers import CLIPProcessor, CLIPModel, AutoProcessor, AutoModel
+model = AutoModel.from_pretrained("google/siglip-so400m-patch14-384").to('cuda')
+processor = AutoProcessor.from_pretrained("google/siglip-so400m-patch14-384")
 
 # model = CLIPModel.from_pretrained("openai/clip-vit-large-patch14")
-processor = CLIPProcessor.from_pretrained("openai/clip-vit-large-patch14")
+# processor = CLIPProcessor.from_pretrained("openai/clip-vit-large-patch14")
 preprocess = lambda x: processor(images=x, return_tensors="pt", padding=True)
 # preprocess = None
 # Get the VG-R dataset
@@ -87,7 +89,8 @@ with torch.no_grad(),torch.cuda.amp.autocast():
             try:
                 caption_embeddings = model.encode_text(texts).cpu().numpy() # B x D
             except:
-                texts = processor(texts, return_tensors="pt", padding=True)
+                texts = processor(text=texts, return_tensors="pt", padding=True).to('cuda')['input_ids']
+                # print(texts)
                 caption_embeddings = model.get_text_features(texts).cpu().numpy()
             caption_embeddings = caption_embeddings / np.linalg.norm(caption_embeddings, axis=1, keepdims=True) # B x D
             caption_options.append(np.expand_dims(caption_embeddings, axis=1))
