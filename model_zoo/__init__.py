@@ -8,7 +8,7 @@ import csv
 import os
 from PIL import Image
 import torch
-# from clip import load
+from clip import load
 import clip
 import pandas as pd
 # import matplotlib.pyplot as plt
@@ -93,25 +93,34 @@ class Llama_FeatureExtractor(nn.Module):
             reps = self.l2v.encode(*args, **kwargs)
         reps_norm = torch.nn.functional.normalize(reps, p=2, dim=1)
         return reps_norm
-def get_model(model_name, device, root_dir):
+def get_model(model_name, device, root_dir,**kwargs):
     """
     Helper function that returns a model and a potential image preprocessing function.
     """
     if "llm2clip" in model_name.lower():
         from .llm2clip_models import LLM2CLIPWrapper
-        text = Llama_FeatureExtractor()
+        # text = Llama_FeatureExtractor()
+        print(os.getenv('LLM2VEC_VERSION',None))
         from eva_clip import create_model_and_transforms, create_model_from_pretrained, trace_model, get_tokenizer
-        evamodel, preprocess_train, preprocess_val = create_model_and_transforms('EVA02-CLIP-L-14-336', 'eva_clip', force_custom_clip=True)
-
-        pretrained = '/home/aiscuser/waq/instructCLIP/new_ckpt_336_1b.pt'
+        evamodel, preprocess_train, preprocess_val = create_model_and_transforms('EVA02-CLIP-L-14', 'eva_clip', force_custom_clip=True,precision='amp')
+        for name, param in evamodel.named_parameters():
+            if param.dtype == torch.float32:
+                continue
+            print(name, param.dtype)
+        # pretrained = '/blob/hwq/data/tune_logs/T_vitEVA02-CLIP-L-14_512x8*2_lr1e-5_Mix15m_8b15m_eval_4ep-2025_01_01-16/checkpoints/epoch_4/mp_rank_00_model_states.pt'
+        pretrained = kwargs.get('pretrained',None)
+        assert pretrained is not None, "Pretrained model path is required for LLM2CLIP"
         checkpoint = torch.load(pretrained)
-        # checkpoint = checkpoint['module']
+        checkpoint = checkpoint['module']
         evamodel.load_state_dict(checkpoint, strict=True)
         evamodel = evamodel.to('cuda').eval()
         visual_model = evamodel
 
-        model = LLM2CLIP(visual_model, text)
-        model = LLM2CLIPWrapper(model, device)
+        # model = LLM2CLIP(visual_model, text)
+        model = LLM2CLIPWrapper(visual_model, device)
+        # model = model.eval()
+        # model = model.to(device)
+        
         image_preprocess = preprocess_val
         return model, image_preprocess
     if "openai-clip" in model_name:

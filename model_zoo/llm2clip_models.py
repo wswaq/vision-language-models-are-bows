@@ -52,6 +52,7 @@ class LLM2CLIPWrapper:
         return scores
     
     @torch.no_grad()
+    @torch.cuda.amp.autocast()
     def get_retrieval_scores_batched(self, joint_loader):
         """Computes the scores for each image_option / caption_option pair in the joint loader.
 
@@ -94,6 +95,9 @@ class LLM2CLIPWrapper:
             for c_option in batch["caption_options"]:
                 # caption_tokenized = torch.cat([clip.tokenize(c) for c in c_option])
                 texts = c_option
+                # print(texts)
+                if isinstance(texts, tuple):
+                    texts = list(texts)
                 caption_embeddings = self.model.encode_text(texts).cpu().numpy() # B x D
                 caption_embeddings = caption_embeddings / np.linalg.norm(caption_embeddings, axis=1, keepdims=True) # B x D
                 caption_options.append(np.expand_dims(caption_embeddings, axis=1))
